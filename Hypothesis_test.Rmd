@@ -1,0 +1,175 @@
+---
+title: 'Project'
+author: 
+- "Ashish Ashish"
+- "Arash Ahmadi"
+date: 'November 7th, 2024'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+require(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(here)
+library(gtsummary)
+
+
+library(readr)
+olympics <- read_csv(here::here("data/olympics.csv"))
+```
+
+
+I added two new columns:
+
+1. toal_gdp, the dataset already has gdp per capita
+
+2. medal_pect, which is total medals divided by total athletes
+
+```{r}
+# make the chr to factor
+olympics <- olympics %>% 
+  mutate(country = factor(country),
+         country_code = factor(country_code),
+         region = factor(region))
+
+olympics <- olympics %>% 
+  mutate(total_gdp = gdp * population,
+         medal_pct = total / athletes)
+
+summary(olympics)
+```
+```{r}
+olympics %>% 
+  ggplot(aes(x=reorder(region, gdp, FUN = median), y=gdp, col=region)) +
+  geom_boxplot() + 
+  labs(title = "GDP per Capita vs Region", 
+       x = "Region",
+       y = "Total GDP")
+ggsave("chart1.png", plot = last_plot(), width = 8, height = 6, dpi = 300)
+```
+
+```{r}
+olympics %>% 
+  ggplot(aes(x=reorder(region, total, FUN = median), y=total, col=region)) +
+  geom_boxplot() + 
+  labs(title = "Total Medals vs Region", 
+       x = "Region",
+       y = "Total Medals")
+ggsave("chart1.png", plot = last_plot(), width = 8, height = 6, dpi = 300)
+```
+
+
+```{r}
+olympics %>% 
+  ggplot(aes(x=total_gdp, y=total, col=population)) +
+  geom_point() +
+  geom_smooth(method='lm') +
+  labs(
+    title = "Total Medals"
+  )
+ggsave("chart1.png", plot = last_plot(), width = 8, height = 6, dpi = 300)
+olympics %>% 
+  ggplot(aes(x=total_gdp, y=gold, col=population)) +
+  geom_point() +
+  geom_smooth(method='lm') +
+  labs(
+    title = "Total Gold Medals"
+  )
+ggsave("chart2.png", plot = last_plot(), width = 8, height = 6, dpi = 300)
+olympics %>% 
+  ggplot(aes(x=total_gdp, y=silver, col=population)) +
+  geom_point() +
+  geom_smooth(method='lm') +
+  labs(
+    title = "Total Silver Medals"
+  )
+ggsave("chart3.png", plot = last_plot(), width = 8, height = 6, dpi = 300)
+olympics %>% 
+  ggplot(aes(x=total_gdp, y=bronze, col=population)) +
+  geom_point() +
+  geom_smooth(method='lm') +
+  labs(
+    title = "Total Bronze Medals"
+  )
+ggsave("chart4.png", plot = last_plot(), width = 8, height = 6, dpi = 300)
+```
+
+**Check Conditions**:
+
+Linearity
+```{r}
+ggplot(olympics, aes(x=total_gdp, y=total)) +
+  geom_point()
+ggsave("chart1.png", plot = last_plot(), width = 8, height = 6, dpi = 300)
+```
+
+
+Independence: 
+
+Normality of the residuals
+```{r}
+# Run SLR model
+mod <- lm(total ~ total_gdp, data = olympics)
+summary(mod)
+
+# Check Normality Assumption
+qqnorm(resid(mod))
+qqline(resid(mod), col = "red")
+ggsave("chart1.png", plot = last_plot(), width = 8, height = 6, dpi = 300)
+
+hist(resid(mod))
+ggsave("chart2.png", plot = last_plot(), width = 8, height = 6, dpi = 300)
+```
+
+Equal (constant) Variance of the residuals
+```{r}
+plot(resid(mod) ~ fitted(mod), main = "Residuals vs. Fitted")  
+abline(h = 0, col = "red") 
+```
+
+```{r}
+hist(olympics$total_gdp)
+```
+
+
+I checked the assumptions for total gdp, and most of them were not meet, therefore, we transformed the gdp by "log function" and retest all the assumptions.
+
+```{r}
+olympics <- olympics %>% 
+  mutate(log_total_gdp = log(total_gdp))
+
+hist(olympics$log_total_gdp)
+
+```
+
+
+Check Assumptions
+```{r}
+ggplot(olympics, aes(x = log_total_gdp, y = log(total))) +
+  geom_point()
+
+# Run model with transformed x
+mod_new <- lm(total ~ log_total_gdp, data = olympics)
+
+# Check Normality Assumption
+qqnorm(resid(mod_new))
+qqline(resid(mod_new), col = "red")
+
+# Check Equal (Constant) Variance Assumption
+plot(resid(mod_new) ~ fitted(mod_new), main = "Residuals vs. Fitted") 
+abline(h = 0, col = "red")
+
+summary(mod_new)
+
+```
+
+
+Refrences:
+
+chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/https://repository.gatech.edu/server/api/core/bitstreams/1aa2b537-c3de-4177-8295-3fcd3a03a965/content
+
+chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/https://faculty.tuck.dartmouth.edu/images/uploads/faculty/andrew-bernard/olymp60restat_finaljournalversion.pdf
